@@ -26,17 +26,22 @@ int spawnX = screenWidth;
 int spawnY = screenHeight;
 
 // ants
+bool waveGenerated = false;
+int waveNumber = 0;
 bool antsSpawned = false;
 int antSize = 2;
 class Ant {
   public:
     int antX;
     int antY;
-    bool alive = true;
+    int antType;
+    bool alive = false;
 };
 int currentAnt;
-int numberOfAnts = 10;
-Ant Ants[10]; // prepare array of ants
+int numberOfAnts;
+int antSpeed;
+int antSpacing;
+Ant Ants[50]; // prepare array of ants (max 50)
 
 // scoring
 int playerScore;
@@ -47,9 +52,9 @@ int footX = 50;
 int footY = -20;
 int footWidth = 32;
 int footHeight = screenHeight;
-bool footRaised = true;
-bool footLowering = false;
-bool footRaising = false;
+bool footRaised;
+bool footLowering;
+bool footRaising;
 
 // images
 const unsigned char titlescreen[] PROGMEM  = {
@@ -64,6 +69,12 @@ void setup() {
   // start arduboy
   arduboy.begin();
 
+  // serial connection for debugging
+  Serial.begin(9600);
+
+  // seed the random number generator
+  arduboy.initRandomSeed();
+  
   // set the frame rate to 60 FPS
   arduboy.setFrameRate(60);
   
@@ -73,7 +84,7 @@ void setup() {
 }
 
 void loop() {
-
+  
   // prevent the game from running too fast (i.e. if not ready to display next frame, wait)
   if (!arduboy.nextFrame()) {
     return;
@@ -114,13 +125,6 @@ void title () {
 
   arduboy.drawBitmap(0, 0, titlescreen, 128, 64, WHITE);
   
-//  arduboy.setCursor(0, 0);
-//  arduboy.print("ANT CRUSHER");
-//  arduboy.setCursor(0, 16);
-//  arduboy.print("Crush 10 ants...");
-//  arduboy.setCursor(0, 26);
-//  arduboy.print("...before 20 escape!");
-  
   arduboy.setCursor(24, 52);
   arduboy.print("> Press A to play");
   if(arduboy.pressed(A_BUTTON) and bufferA == 0) {
@@ -135,18 +139,51 @@ void gameplay() {
   printScore();
 
   checkScore();
-
+  
   footUpDown();
 
   // draw player foot
-  //  arduboy.fillRect(footX, footY, footWidth, footHeight, WHITE);
   arduboy.drawBitmap(footX, footY, foot, footWidth, footHeight, WHITE);
 
-  // set Ant spawn coordinates
+  // generate next wave of ants
+  if (waveGenerated == false) {
+    // empty the Ants array
+    for (int i = 0; i < 50; i++) {
+      Ants[i].alive = true;
+    }
+    // increment the wave number
+    waveNumber++;
+    // random number of ants
+    numberOfAnts = random(10, 50);
+    // random speed
+    antSpeed = random(1, 5);
+    // random spacing
+    antSpacing = random(10, 20);
+    // stop until next needed
+    waveGenerated = true;
+    // set antsSpawned to false
+    antsSpawned == false;
+//    // debug
+//    Serial.print("Wave Generated");
+//    Serial.print("\n");
+//    Serial.print("numberOfAnts: ");
+//    Serial.print(numberOfAnts);
+//    Serial.print("\n");
+//    Serial.print("antSpeed: ");
+//    Serial.print(antSpeed);
+//    Serial.print("\n");
+//    Serial.print("antSpacing: ");
+//    Serial.print(antSpacing);
+//    Serial.print("\n");
+  }
+
+  // spawn ants
   if (antsSpawned == false) {
     for ( currentAnt = 0; currentAnt < numberOfAnts; currentAnt++ ) {
-      Ants[currentAnt].antX = spawnX + (currentAnt*10); // spawn ants 10px apart
+      Ants[currentAnt].antType = random(1, 2);
+      Ants[currentAnt].antX = spawnX + (currentAnt*antSpacing) + antSize; // horizontal offset for spawing + random number
       Ants[currentAnt].antY = spawnY;
+      Ants[currentAnt].alive = true;
     }
     antsSpawned = true; // stop them spawning again
   }
@@ -166,12 +203,31 @@ void gameplay() {
 }
 
 void checkScore() {
-  if (playerScore >= numberOfAnts) {
-    gamestate = 2; // win
+
+  // if all the ants are dead...
+  if ((playerScore + computerScore) == numberOfAnts) {
+    // and there have been 5 or less waves...
+//    if (waveNumber <= 5) {
+      // spawn a new wave
+      playerScore = 0;
+      computerScore = 0;
+      waveGenerated = false;
+      antsSpawned = false;
+//    }
   }
-  if (computerScore >= 20) {
-    gamestate = 3; // lose
-  }
+
+//  // if there have been more than 5 waves...
+//  if (waveNumber > 5) {
+//    // win the game (for now)
+//    gamestate = 2; // win    
+//  }
+  
+//  if (playerScore >= numberOfAnts) {
+//    gamestate = 2; // win
+//  }
+//  if (computerScore >= numberOfAnts) {
+//    gamestate = 3; // lose
+//  }
 }
 
 void printScore() {
@@ -186,8 +242,14 @@ void printScore() {
 }
 
 void footUpDown() {
+  
+  // if the foot is at the top of the screen...
+  if (footY == -20) {
+    footRaising = false;
+    footRaised = true;
+  }
 
-  // if the foot is raised
+  // if the foot is raised...
   if (footRaised == true) {
     // if A is pressed..
     if(arduboy.pressed(A_BUTTON) and bufferA == 0) {
@@ -215,12 +277,6 @@ void footUpDown() {
   if (footRaising == true and footY > -20) {
     footY = footY - 1;
   }
-
-  // if the foot is at the top of the screen...
-  if (footY == -20) {
-    footRaising = false;
-    footRaised = true;
-  }
   
 }
 
@@ -233,8 +289,10 @@ void escapedAnts() {
   if (Ants[currentAnt].antX <= 0) {
    // increment computer score
    computerScore++;
-   // respawn ant
-   Ants[currentAnt].antX = spawnX;
+//   // respawn ant
+//   Ants[currentAnt].antX = spawnX;
+   // kill the ant
+   Ants[currentAnt].alive = false;
   }
 }
 
@@ -280,19 +338,13 @@ void lose() {
 void resetgame() {
   // ants
   antsSpawned = false;
-  for ( int i = 0; i < numberOfAnts; i++ ) {
-    Ants[i].alive = true;
-  }
-  numberOfAnts = 10;
   // scoring
   playerScore = 0;
   computerScore = 0;
   // player
   footX = 50;
   footY = -20;
-  footRaised = true;
-  footLowering = false;
-  footRaising = false;
+  waveGenerated = false;
 }
 
 void resetbuttonbuffers() {
