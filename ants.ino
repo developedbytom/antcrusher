@@ -29,12 +29,11 @@ int spawnY = screenHeight;
 bool waveGenerated = false;
 int waveNumber = 0;
 bool antsSpawned = false;
-int antSize = 2;
 class Ant {
   public:
     int antX;
     int antY;
-    int antType;
+    int antSize;
     bool alive = false;
 };
 int currentAnt;
@@ -44,8 +43,10 @@ int antSpacing;
 Ant Ants[50]; // prepare array of ants (max 50)
 
 // scoring
-int playerScore;
-int computerScore;
+int waveAntsCrushed;
+int waveAntsLost;
+int totalAntsCrushed;
+int totalAntsLost;
 
 // player
 int footX = 50;
@@ -147,16 +148,12 @@ void gameplay() {
 
   // generate next wave of ants
   if (waveGenerated == false) {
-    // empty the Ants array
-    for (int i = 0; i < 50; i++) {
-      Ants[i].alive = true;
-    }
     // increment the wave number
     waveNumber++;
     // random number of ants
     numberOfAnts = random(10, 50);
     // random speed
-    antSpeed = random(1, 5);
+    antSpeed = random(1, 4);
     // random spacing
     antSpacing = random(10, 20);
     // stop until next needed
@@ -180,8 +177,8 @@ void gameplay() {
   // spawn ants
   if (antsSpawned == false) {
     for ( currentAnt = 0; currentAnt < numberOfAnts; currentAnt++ ) {
-      Ants[currentAnt].antType = random(1, 2);
-      Ants[currentAnt].antX = spawnX + (currentAnt*antSpacing) + antSize; // horizontal offset for spawing + random number
+      Ants[currentAnt].antSize = random(1, 3);
+      Ants[currentAnt].antX = spawnX + (currentAnt*antSpacing) + Ants[currentAnt].antSize; // horizontal offset for spawing + random number
       Ants[currentAnt].antY = spawnY;
       Ants[currentAnt].alive = true;
     }
@@ -196,7 +193,7 @@ void gameplay() {
       escapedAnts(); // score if ants escape
       crushedAnts(); // score if ants are crushed
       // draw ants
-      arduboy.fillRect(Ants[currentAnt].antX - antSize, Ants[currentAnt].antY - antSize, antSize, antSize, WHITE);
+      arduboy.fillRect(Ants[currentAnt].antX - Ants[currentAnt].antSize, Ants[currentAnt].antY - Ants[currentAnt].antSize, Ants[currentAnt].antSize, Ants[currentAnt].antSize, WHITE);
     }
   }
   
@@ -205,12 +202,12 @@ void gameplay() {
 void checkScore() {
 
   // if all the ants are dead...
-  if ((playerScore + computerScore) == numberOfAnts) {
+  if ((waveAntsCrushed + waveAntsLost) == numberOfAnts) {
     // and there have been 5 or less waves...
 //    if (waveNumber <= 5) {
       // spawn a new wave
-      playerScore = 0;
-      computerScore = 0;
+      waveAntsCrushed = 0;
+      waveAntsLost = 0;
       waveGenerated = false;
       antsSpawned = false;
 //    }
@@ -222,22 +219,22 @@ void checkScore() {
 //    gamestate = 2; // win    
 //  }
   
-//  if (playerScore >= numberOfAnts) {
+//  if (waveAntsCrushed >= numberOfAnts) {
 //    gamestate = 2; // win
 //  }
-//  if (computerScore >= numberOfAnts) {
+//  if (waveAntsLost >= numberOfAnts) {
 //    gamestate = 3; // lose
 //  }
 }
 
 void printScore() {
-  // computer score
+  // ants lost
   arduboy.setCursor(0,0);
-  arduboy.print(computerScore);
+  arduboy.print(totalAntsLost);
   arduboy.print(" Lost");
-  // player score
+  // ants crushed
   arduboy.setCursor(68,0);
-  arduboy.print(playerScore);
+  arduboy.print(totalAntsCrushed);
   arduboy.print(" Crushed");
 }
 
@@ -281,16 +278,17 @@ void footUpDown() {
 }
 
 void moveAnts() {
-  Ants[currentAnt].antX = Ants[currentAnt].antX - 2; 
+//  Ants[currentAnt].antX = Ants[currentAnt].antX - 2; 
+  Ants[currentAnt].antX = Ants[currentAnt].antX - antSpeed; 
 }
 
 void escapedAnts() {
   // if ant is offscreen
   if (Ants[currentAnt].antX <= 0) {
-   // increment computer score
-   computerScore++;
-//   // respawn ant
-//   Ants[currentAnt].antX = spawnX;
+   // increment wave ants lost
+   waveAntsLost++;
+   // increment total ants list 
+   totalAntsLost++;
    // kill the ant
    Ants[currentAnt].alive = false;
   }
@@ -298,11 +296,13 @@ void escapedAnts() {
 
 void crushedAnts() {
   // if player foot is down
-  if (footY == -1) {
+  if (footY == 0 or footY == -1) {
     // if ant is under foot
     if (Ants[currentAnt].antX >= footX and Ants[currentAnt].antX <= footX + footWidth) {
-      // increment player score
-      playerScore++;
+      // increment wave ants crushed
+      waveAntsCrushed++;
+      // increment total ants crushed
+      totalAntsCrushed++;
       // kill the ant
       Ants[currentAnt].alive = false;
     }
@@ -339,8 +339,8 @@ void resetgame() {
   // ants
   antsSpawned = false;
   // scoring
-  playerScore = 0;
-  computerScore = 0;
+  waveAntsCrushed = 0;
+  waveAntsLost = 0;
   // player
   footX = 50;
   footY = -20;
