@@ -42,22 +42,34 @@ int antSpeed;
 int antSpacing;
 Ant Ants[50]; // prepare array of ants (max 50)
 
-// scoring
-int waveAntsCrushed;
-int waveAntsLost;
-int totalAntsCrushed;
-int totalAntsLost;
-
-// player
+// foot
 const int footHighPoint = -33; // highest foot can go
 const int footLowPoint = -13; // lowest foot can go
 const int footWidth = 32;
 const int footHeight = 64;
+
+// 1st player
 int footX = 20;
 int footY = footHighPoint;
 bool footRaised;
 bool footLowering;
 bool footRaising;
+
+// 2nd player
+bool twoPlayer;
+int p2_footX = 76;
+int p2_footY = footHighPoint;
+bool p2_footRaised;
+bool p2_footLowering;
+bool p2_footRaising;
+
+// scoring
+int waveAntsCrushed;
+int waveAntsLost;
+int totalAntsCrushed;
+int totalAntsLost;
+int p2_totalAntsCrushed;
+int p2_totalAntsLost;
 
 // images
 const unsigned char titlescreen[] PROGMEM  = {
@@ -141,6 +153,8 @@ void title () {
 }
 
 void gameplay() {
+
+  twoPlayer = true;
   
   printScore();
 
@@ -158,6 +172,11 @@ void gameplay() {
   
   // draw player foot
   arduboy.drawBitmap(footX, footY, foot, footWidth, footHeight, WHITE);
+  // 2 player
+  if (twoPlayer == true) {
+    arduboy.drawBitmap(p2_footX, p2_footY, foot, footWidth, footHeight, WHITE);
+  }
+  
 
   // generate next wave of ants
   if (waveGenerated == false) {
@@ -180,12 +199,6 @@ void gameplay() {
 //    Serial.print("\n");
 //    Serial.print("numberOfAnts: ");
 //    Serial.print(numberOfAnts);
-//    Serial.print("\n");
-//    Serial.print("antSpeed: ");
-//    Serial.print(antSpeed);
-//    Serial.print("\n");
-//    Serial.print("antSpacing: ");
-//    Serial.print(antSpacing);
 //    Serial.print("\n");
   }
 
@@ -227,14 +240,11 @@ void checkScore() {
 
   // if all the ants are dead...
   if ((waveAntsCrushed + waveAntsLost) == numberOfAnts) {
-    // and there have been 5 or less waves...
-//    if (waveNumber <= 5) {
-      // spawn a new wave
-      waveAntsCrushed = 0;
-      waveAntsLost = 0;
-      waveGenerated = false;
-      antsSpawned = false;
-//    }
+    // spawn a new wave
+    waveAntsCrushed = 0;
+    waveAntsLost = 0;
+    waveGenerated = false;
+    antsSpawned = false;
   }
 
 //  // if there have been more than 5 waves...
@@ -252,14 +262,24 @@ void checkScore() {
 }
 
 void printScore() {
-//  // ants lost
-//  arduboy.setCursor(0,0);
-//  arduboy.print(totalAntsLost);
-//  arduboy.print(" Lost");
-  // ants crushed
-  arduboy.setCursor(4,56);
-  arduboy.print(totalAntsCrushed);
-  arduboy.print(" Crushed");
+  
+  if (twoPlayer == false) {
+    arduboy.setCursor(4,56);
+    arduboy.print("Points: ");
+    arduboy.print(totalAntsCrushed);
+  }
+
+  if (twoPlayer == true) {
+    // 1st player score
+    arduboy.setCursor(4,56);
+    arduboy.print("P1: ");
+    arduboy.print(totalAntsCrushed);
+    // 2nd player score
+    arduboy.setCursor(64,56);
+    arduboy.print("P2: ");
+    arduboy.print(p2_totalAntsCrushed);
+  }
+  
 }
 
 void footUpDown() {
@@ -273,8 +293,8 @@ void footUpDown() {
   // if the foot is raised...
   if (footRaised == true) {
     // if A is pressed..
-    if(arduboy.pressed(A_BUTTON) and bufferA == 0) {
-      bufferA = 1;
+    if(arduboy.pressed(DOWN_BUTTON) and bufferDown == 0) {
+      bufferDown = 1;
       footLowering = true;
       footRaised = false;
     }
@@ -297,6 +317,44 @@ void footUpDown() {
   // if foot is raising, and not at the top of the screen...
   if (footRaising == true and footY > footHighPoint) {
     footY = footY - 1;
+  }
+
+  // 2 player
+  if (twoPlayer == true) {
+    // if the foot is at the top of the screen...
+    if (p2_footY == footHighPoint) {
+      p2_footRaising = false;
+      p2_footRaised = true;
+    }
+  
+    // if the foot is raised...
+    if (p2_footRaised == true) {
+      // if A is pressed..
+      if(arduboy.pressed(A_BUTTON) and bufferA == 0) {
+        bufferA = 1;
+        p2_footLowering = true;
+        p2_footRaised = false;
+      }
+    }
+  
+    // if foot is lowering, and not at the bottom of the screen...
+    if (p2_footLowering == true and p2_footY < footLowPoint) {
+      // move the foot down
+      p2_footY = p2_footY + 2;  
+    }
+  
+    // if foot is at the bottom of the screen...
+    if (p2_footY == footLowPoint) {
+      // stop foot lowering
+      p2_footLowering = false;
+      // start foot raising
+      p2_footRaising = true;
+    }
+  
+    // if foot is raising, and not at the top of the screen...
+    if (p2_footRaising == true and p2_footY > footHighPoint) {
+      p2_footY = p2_footY - 1;
+    }
   }
   
 }
@@ -339,6 +397,30 @@ void crushedAnts() {
       Ants[currentAnt].alive = false;
     }
   }
+
+  if (twoPlayer == true) {
+      // if player foot is down
+      if (p2_footY == footLowPoint or p2_footY == footLowPoint -1) {
+        // if ant is under foot
+        if ((Ants[currentAnt].antX >= p2_footX and Ants[currentAnt].antX <= p2_footX + footWidth) or (Ants[currentAnt].antX + Ants[currentAnt].antSize >= p2_footX and Ants[currentAnt].antX + Ants[currentAnt].antSize <= p2_footX + footWidth)) {
+          // increment wave ants crushed
+          waveAntsCrushed++;
+          // increment total ants crushed
+          if (Ants[currentAnt].antSize <= 7){
+            // one point for regular ants 
+            p2_totalAntsCrushed++;
+          }
+          // draw queens
+          if (Ants[currentAnt].antSize == 8){
+            // 20 points for queens
+            p2_totalAntsCrushed = p2_totalAntsCrushed + 20;
+          }
+          // kill the ant
+          Ants[currentAnt].alive = false;
+        }
+      }
+  }
+  
 }
 
 void win() {
